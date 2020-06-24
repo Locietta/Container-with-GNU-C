@@ -4,8 +4,6 @@
 #include "lambda.h"
 
 int main(void) {
-    // (init)
-    // ...
     srand(1324);
     list myList = newlist(int);
     for (int i = 0; i < 10; ++i) {

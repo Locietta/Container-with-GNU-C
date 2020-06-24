@@ -1,8 +1,9 @@
 /**
  * @file list.h
  * @author Locietta (https://github.com/Locietta)
- * @brief 抽象链表接口(仅支持GNU GCC)
+ * @brief 抽象链表接口(仅支持GCC)
  * @details 模仿STL的list容器写的接口(注意:使用了GUN扩展)
+ * - 2020/06/24: 原来的代码丢了,又重新写了一遍(死)
  * @version 0.2
  * @date 2020-06-07
  *  last modified 2020-06-24
@@ -17,7 +18,7 @@
 
 /* Public: interface */
 
-#define __deref(type, void_ptr) (*(type *) void_ptr) //*it
+#define __deref(type, void_ptr) (*(type *) void_ptr) 
 
 /** 简易迭代器 @{ */
 
@@ -29,7 +30,7 @@ iterator prev_iterator(iterator it); // it--;
 
 iterator advance_iterator(iterator it, int step); // advance(it, step);
 
-#define deref_iterator(type, it) (*(type *) __dereference_iterator(it))
+#define deref_iterator(type, it) (*(type *) __dereference_iterator(it)) //*it
 
 /** @} */
 
