@@ -41,15 +41,29 @@ struct list {
     // int size;
     // size_t elemSize;
     // int (*cmp)(void *data1, void *data2);
+    // void (*destructor)(void *_Block);
 
     // Public:
     int (*size)(void);
     bool (*empty)(void);
+    list (*setcmp)(int (*cmp)(void *data1, void *data2));
+    list (*setdestructor)(void (*destructor)(void *_Block));
+
     iterator (*begin)(void);
     iterator (*end)(void);
     const void *(*front)(void);
     const void *(*back)(void);
+    list (*push_front)(void *newdata);
+    list (*push_back)(void *newdata);
     iterator (*insert)(iterator pos, void *newdata);
+    list (*pop_front)(void);
+    list (*pop_back)(void);
+    iterator (*erase)(iterator pos);
+    list (*remove)(void *data);
+    list (*remove_if)(int (*key)(void *data));
+    list (*sort)(void); // 快排,需要先调用setcmp()
+    list (*reverse)(void);
+    list (*for_each)(iterator first, iterator last, void (*todo)(void *data));
     list (*traverse)(void (*todo)(void *data));
 
     list (*destory)(void);
@@ -58,6 +72,8 @@ struct list {
 /// 构造
 #define newlist(type) (newList_private(type))
 
+/// 析构
+#define deleteList(L) (L.destory())
 
 /* Private: implementations */
 // 你就装作下面的东西都不存在（
@@ -73,6 +89,7 @@ typedef struct list_privateParTable {
     int size;
     size_t elemSize;
     int (*cmp)(void *data1, void *data2);
+    void (*destructor)(void *_Block);
 
 } * __list_privateParTable, list_privateParTable;
 
@@ -84,51 +101,101 @@ struct list_private_info {
 
     const void *(*front)(__List head);
     const void *(*back)(__List head);
+    list (*push_front)(__list_privateParTable privateTable, void *newdata);
+    list (*push_back)(__list_privateParTable privateTable, void *newdata);
     iterator (*insert)(__list_privateParTable privateTable, iterator pos, void *newdata);
-    list (*traverse)(__list_privateParTable privateTable, void (*todo)(void *data));
+    list (*pop_front)(__list_privateParTable privateTable);
+    list (*pop_back)(__list_privateParTable privateTable);
+    iterator (*erase)(__list_privateParTable privateTable, iterator pos);
+    list (*remove)(__list_privateParTable privateTable, void *data);
+    list (*remove_if)(__list_privateParTable privateTable, int (*key)(void *data));
+    list (*sort)(__list_privateParTable privateTable);
+    list (*reverse)(__list_privateParTable privateTable);
+    list (*for_each)(__list_privateParTable privateTable, iterator first, iterator last,
+                     void (*todo)(void *data));
 
     list (*destory)(__list_privateParTable privateTable);
 };
 
 extern const list_private list_methodTable;
 
-#define newList_private(type)                                                                     \
-    ({                                                                                   \
-        list_privateParTable privateTable = {                                            \
-            .size = 0,                                                                   \
-            .elemSize = sizeof(type),                                                       \
-            .cmp = NULL,                                                                 \
-        };                                                                               \
-        privateTable.head = head_init();                                                 \
-        privateTable.this = (list){                                                      \
-            .size = lambda(                                                              \
-                int, (void) { return privateTable.size; }),                              \
-            .empty = lambda(                                                             \
-                bool, (void) { return !privateTable.size; }),                            \
-            .begin = lambda(                                                             \
-                iterator, (void) { return next_iterator(privateTable.head); }),          \
-            .end = lambda(                                                               \
-                iterator, (void) { return prev_iterator(privateTable.head); }),          \
-            .front = lambda(                                                             \
-                const void *,                                                            \
-                (void) { return list_methodTable.front(privateTable.head); }),           \
-            .back = lambda(                                                              \
-                const void *,                                                            \
-                (void) { return list_methodTable.back(privateTable.head); }),            \
-            .insert = lambda(                                                            \
-                iterator,                                                                \
-                (iterator pos, void *newdata) {                                          \
-                    return list_methodTable.insert(&privateTable, pos, newdata);         \
-                }),                                                                      \
-            .traverse = lambda(                                                          \
-                list,                                                                    \
-                (void(*todo)(void *data)) {                                              \
-                    return list_methodTable.traverse(&privateTable, todo);               \
-                }),                                                                      \
-            .destory = lambda(                                                           \
-                list, (void) { return list_methodTable.destory(&privateTable); }),   \
-        };                                                                               \
-        privateTable.this;                                                               \
+#define newList_private(type)                                                                      \
+    ({                                                                                             \
+        list_privateParTable privateTable = {                                                      \
+            .size = 0,                                                                             \
+            .elemSize = sizeof(type),                                                              \
+            .cmp = NULL,                                                                           \
+            .destructor = free,                                                                    \
+        };                                                                                         \
+        privateTable.head = head_init();                                                           \
+        privateTable.this = (list){                                                                \
+            .size = lambda(                                                                        \
+                int, (void) { return privateTable.size; }),                                        \
+            .empty = lambda(                                                                       \
+                bool, (void) { return !privateTable.size; }),                                      \
+            .setcmp = lambda(                                                                      \
+                list,                                                                              \
+                (int (*cmp)(void *data1, void *data2)) {                                           \
+                    privateTable.cmp = cmp;                                                        \
+                    return privateTable.this;                                                      \
+                }),                                                                                \
+            .setdestructor = lambda(                                                               \
+                list,                                                                              \
+                (void (*destructor)(void *_Block)) {                                               \
+                    privateTable.destructor = destructor;                                          \
+                    return privateTable.this;                                                      \
+                }),                                                                                \
+            .begin = lambda(                                                                       \
+                iterator, (void) { return next_iterator(privateTable.head); }),                    \
+            .end = lambda(                                                                         \
+                iterator, (void) { return privateTable.head; }),                                   \
+            .front = lambda(                                                                       \
+                const void *, (void) { return list_methodTable.front(privateTable.head); }),       \
+            .back = lambda(                                                                        \
+                const void *, (void) { return list_methodTable.back(privateTable.head); }),        \
+            .push_front = lambda(                                                                  \
+                list,                                                                              \
+                (void *newdata) { return list_methodTable.push_front(&privateTable, newdata); }),  \
+            .push_back = lambda(                                                                   \
+                list,                                                                              \
+                (void *newdata) { return list_methodTable.push_back(&privateTable, newdata); }),   \
+            .insert = lambda(                                                                      \
+                iterator,                                                                          \
+                (iterator pos, void *newdata) {                                                    \
+                    return list_methodTable.insert(&privateTable, pos, newdata);                   \
+                }),                                                                                \
+            .pop_front = lambda(                                                                   \
+                list, (void) { return list_methodTable.pop_front(&privateTable); }),               \
+            .pop_back = lambda(                                                                    \
+                list, (void) { return list_methodTable.pop_back(&privateTable); }),                \
+            .erase = lambda(                                                                       \
+                iterator, (iterator pos) { return list_methodTable.erase(&privateTable, pos); }),  \
+            .remove = lambda(                                                                      \
+                list, (void *data) { return list_methodTable.remove(&privateTable, data); }),      \
+            .remove_if = lambda(                                                                   \
+                list,                                                                              \
+                (int (*key)(void *data)) {                                                         \
+                    return list_methodTable.remove_if(&privateTable, key);                         \
+                }),                                                                                \
+            .sort = lambda(                                                                        \
+                list, (void) { return list_methodTable.sort(&privateTable); }),                    \
+            .reverse = lambda(                                                                     \
+                list, (void) { return list_methodTable.reverse(&privateTable); }),                 \
+            .for_each = lambda(                                                                    \
+                list,                                                                              \
+                (iterator first, iterator last, void (*todo)(void *data)) {                        \
+                    return list_methodTable.for_each(&privateTable, first, last, todo);            \
+                }),                                                                                \
+            .traverse = lambda(                                                                    \
+                list,                                                                              \
+                (void (*todo)(void *data)) {                                                       \
+                    return list_methodTable.for_each(                                              \
+                        &privateTable, next_iterator(privateTable.head), privateTable.head, todo); \
+                }),                                                                                \
+            .destory = lambda(                                                                     \
+                list, (void) { return list_methodTable.destory(&privateTable); }),                 \
+        };                                                                                         \
+        privateTable.this;                                                                         \
     })
 
 #endif // (!defined LIST_H)
