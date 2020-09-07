@@ -2,7 +2,7 @@
  * @file lambda.h
  * @author Locietta
  * @brief 用宏实现一个简单的lambda表达式(匿名函数)
- * @note 用到了GNU扩展，需要gcc编译 "hack, but so far stable"
+ * @note 用到了GNU扩展，需要gcc编译 
  * @bug 
  * @version 0.1
  * @date 2020-06-13

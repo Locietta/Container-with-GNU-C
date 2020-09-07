@@ -4,9 +4,10 @@
  * @brief 抽象链表接口(仅支持GCC)
  * @details 模仿STL的list容器写的接口(注意:使用了GUN扩展)
  * - 2020/06/24: 原来的代码丢了,又重新写了一遍(死)
- * @version 0.2
+ * - 2020/09/07: 为了使用方便，添加了一些标识符
+ * @version 0.2.1
  * @date 2020-06-07
- *  last modified 2020-06-24
+ *  last modified 2020-09-07
  */
 
 #ifndef LIST_H
@@ -14,11 +15,38 @@
 
 #include <stddef.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include "lambda.h"
 
 /* Public: interface */
 
 #define __deref(type, void_ptr) (*(type *) void_ptr) 
+
+/** 函数指针类型 @{ */
+
+typedef void (*NodeOperator)(void *data);
+
+typedef int (*NodeSelector)(void *data);
+
+typedef void (*NodeDestructor)(void *_Block);
+
+typedef int (*NodeComparer)(void *data1, void *data2);
+
+/** @} */
+
+/** 预设NodeComparer @{ */
+
+#define _int_comparer_                                          \
+    lambda(int, (void *data1, void *data2) {                    \
+        return (*(int *) data1 - *(int *) data2);               \
+    })
+
+#define _double_comparer_                                       \
+    lambda(int, (void *data1, void *data2) {                    \
+        return (*(double *) data1 - *(double *) data2);         \
+    })
+
+/** @} */
 
 /** 简易迭代器 @{ */
 
@@ -47,8 +75,8 @@ struct list {
     // Public:
     int (*size)(void);
     bool (*empty)(void);
-    list (*setcmp)(int (*cmp)(void *data1, void *data2));
-    list (*setdestructor)(void (*destructor)(void *_Block));
+    list (*setcmp)(NodeComparer cmp);
+    list (*setdestructor)(NodeDestructor destructor);
 
     iterator (*begin)(void);
     iterator (*end)(void);
@@ -61,10 +89,10 @@ struct list {
     list (*pop_back)(void);
     iterator (*erase)(iterator pos);
     list (*remove)(void *data);
-    list (*remove_if)(int (*key)(void *data));
+    list (*remove_if)(NodeSelector key);
     list (*sort)(void); // 快排,需要先调用setcmp()
     list (*reverse)(void);
-    list (*for_each)(iterator first, iterator last, void (*todo)(void *data));
+    list (*for_each)(iterator first, iterator last, NodeOperator todo);
     list (*traverse)(void (*todo)(void *data));
 
     list (*destory)(void);
@@ -89,8 +117,8 @@ typedef struct list_privateParTable {
     __List head;
     int size;
     size_t elemSize;
-    int (*cmp)(void *data1, void *data2);
-    void (*destructor)(void *_Block);
+    NodeComparer cmp;
+    NodeDestructor destructor;
 
 } * __list_privateParTable, list_privateParTable;
 
